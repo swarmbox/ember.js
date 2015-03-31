@@ -326,11 +326,9 @@ var ContainerView = View.extend(MutableArray, {
     @param {Number} added the number of child views added
   */
   childViewsDidChange: function(views, start, removed, added) {
-    if (added > 0) {
-      var changedViews = views.slice(start, start+added);
-      this.initializeViews(changedViews, this);
-      this.currentState.childViewsDidChange(this, views, start, added);
-    }
+    var changedViews = views.slice(start, start+added);
+    this.initializeViews(changedViews, this);
+    this.currentState.childViewsDidChange(this, views, start, added);
     this.propertyDidChange('childViews');
   },
 
@@ -398,6 +396,7 @@ merge(states.hasElement, {
     var refMorph = null;
     for (var i = childViews.length-1; i >= 0; i--) {
       var childView = childViews[i];
+      set(childView, 'contentIndex', i);
       if (!childView._elementCreated) {
         renderer.renderTree(childView, view, refMorph);
       }
