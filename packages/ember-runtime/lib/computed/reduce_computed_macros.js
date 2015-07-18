@@ -14,7 +14,7 @@ import {
   forEach
 } from 'ember-metal/enumerable_utils';
 import run from 'ember-metal/run_loop';
-import { addObserver } from 'ember-metal/observer';
+import { addObserver, removeObserver } from 'ember-metal/observer';
 import { arrayComputed } from 'ember-runtime/computed/array_computed';
 import { reduceComputed } from 'ember-runtime/computed/reduce_computed';
 import SubArray from 'ember-runtime/system/subarray';
@@ -766,10 +766,16 @@ function customSort(itemsKey, comparator) {
 }
 
 function propertySort(itemsKey, sortPropertiesKey) {
+  var recomputePropFn, recomputeEachFn;
   return arrayComputed(itemsKey, {
     _suppressDeprecation: true,
 
     initialize(array, changeMeta, instanceMeta) {
+
+      function recomputeOnce() {
+        changeMeta.property.recomputeOnce.call(this, changeMeta.propertyName);
+      }
+
       function setupSortProperties() {
         var sortPropertyDefinitions = get(this, sortPropertiesKey);
         var sortProperties = instanceMeta.sortProperties = [];
@@ -795,19 +801,17 @@ function propertySort(itemsKey, sortPropertiesKey) {
           changeMeta.property.itemPropertyKey(itemsKey, sortProperty);
         });
 
-        this.addObserver(sortPropertiesKey + '.@each', this, updateSortPropertiesOnce);
+        if (recomputeEachFn) {
+          removeObserver(sortPropertyDefinitions, '@each', this, recomputeEachFn);
+        }
+        addObserver(sortPropertyDefinitions, '@each', this, recomputeEachFn = recomputeOnce);
       }
 
-      function updateSortPropertiesOnce() {
-        run.once(this, updateSortProperties, changeMeta.propertyName);
+      if (recomputePropFn) {
+        removeObserver(this, sortPropertiesKey, recomputePropFn);
       }
+      addObserver(this, sortPropertiesKey, recomputePropFn = recomputeOnce);
 
-      function updateSortProperties(propertyName) {
-        setupSortProperties.call(this);
-        changeMeta.property.recomputeOnce.call(this, propertyName);
-      }
-
-      addObserver(this, sortPropertiesKey, updateSortPropertiesOnce);
       setupSortProperties.call(this);
 
       instanceMeta.order = function (itemA, itemB) {
